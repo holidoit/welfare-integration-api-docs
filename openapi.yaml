@@ -26,16 +26,16 @@ info:
     - `credit`: Object with `available_amount`, `available_fringe_amount`, `currency`
   version: 1.0.0
   contact:
-    email: integrations@holidoit.com
+    email: luca.leoni@holidoit.com
   license:
     name: Proprietary
     url: https://holidoit.com/terms
 
 servers:
-  - url: https://api.sandbox.holidoit.com
+  - url: https://development.holydoit.com
     description: Sandbox environment for testing
-  - url: https://api.holidoit.com
-    description: Production environment
+#  - url: https://api.holidoit.com
+#    description: Production environment
 
 paths:
   /welfare/login/:
@@ -71,7 +71,7 @@ paths:
           description: |
             Successful authentication. User is redirected to the welfare frontend.
             
-            The redirect URL will be: `https://{provider}.welfare.holidoit.com?session_id={uuid}`
+            The redirect URL will be: `https://{provider}.welfare.holido.it?session_id={uuid}`
           headers:
             Location:
               description: Redirect URL with session ID
