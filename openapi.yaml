@@ -1,1117 +1,263 @@
 openapi: 3.0.3
 info:
-  title: Holidoit Business API
-  version: "1.0.0"
-  description: >
-    API endpoints for the Holidoit integration.
-
-    All endpoints are protected by HTTP Basic Authentication.
-    Each request must include a valid username and password
-    in the `Authorization` header.
-
-    Example:
-    ```
-    Authorization: Basic base64(username:password)
-    ```
+  title: Holidoit Welfare Provider API
+  description: |
+    API for welfare providers to integrate with the Holidoit booking platform.
+    
+    This specification covers the login endpoint that welfare providers must call
+    to authenticate their users and redirect them to the Holidoit welfare portal.
+    
+    ## Authentication Flow
+    
+    1. Provider generates a JWT token with user info and credit balance
+    2. Provider sends a POST request to `/welfare/login/` with the token
+    3. Holidoit validates the JWT and creates a session
+    4. User is redirected to the welfare frontend with a session ID
+    
+    ## JWT Token Requirements
+    
+    The `token` parameter must be a valid JWT signed with RS256 algorithm containing:
+    - `sub`: Unique user identifier
+    - `iss`: Provider's identifier
+    - `aud`: Holidoit's identifier for this provider
+    - `iat`: Issued at timestamp
+    - `exp`: Expiration timestamp
+    - `user_info`: Object with `first_name`, `last_name`, `fiscal_code`, `email`
+    - `credit`: Object with `available_amount`, `available_fringe_amount`, `currency`
+  version: 1.0.0
+  contact:
+    email: integrations@holidoit.com
+  license:
+    name: Proprietary
+    url: https://holidoit.com/terms
 
 servers:
-  - url: https://staging.holydoit.com/api/v0/integrations/supplier-api
-    description: Test server
-
+  - url: https://api.sandbox.holidoit.com
+    description: Sandbox environment for testing
+  - url: https://api.holidoit.com
+    description: Production environment
 
 paths:
-  /partners:
-    get:
-      tags:
-        - Integration
-      summary: List partners with active experiences
-      description: >
-        Returns a list of partners that have configured for integration.  
-        
-        **Authentication required:** Basic Auth
-      operationId: getPartners
-      security:
-        - BasicAuth: [ ]
-      responses:
-        '200':
-          description: List of partners with active integration.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PartnerWithProducts'
-              example:
-                - id: "a3f20c3e-8f2e-4d33-bc12-88ff30dfbd9c"
-                  name: "test"
-                  email: "example@partner.com"
-                  products:
-                    - id: "test-1"
-                      internalName: "Test 1"
-                    - id: "test-2"
-                      internalName: "Test 2"
-        '401':
-          description: Authentication credentials were not provided or invalid.
-        '403':
-          description: Permission denied.
-
-  /partners/{partnerId}/products:
-    get:
-      tags:
-        - Integration
-      summary: Get partner products with their options
-      description: >        
-        Returns all products of a partner,  
-        including all options and their participant types.  
-        
-        **Authentication required:** Basic Auth
-      operationId: getPartnerProducts
-      security:
-        - BasicAuth: [ ]
-      parameters:
-        - name: partnerId
-          in: path
-          required: true
-          description: >
-            Id of the partner.
-          schema:
-            type: string
-            format: string
-            example: "5d8de66c-d1ae-4a92-8279-f959f6a9afa8"
-      responses:
-        '200':
-          description: List of all active products for the given partner.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ProductInfoResponse'
-              example:
-                - id: "test"
-                  internalName: "test"
-                  timeZone: "Europe/Rome"
-                  options:
-                    - id: 101
-                      cutoffSeconds: 86400
-                      cancellationCutoffSeconds: 43200
-                      durationSeconds: 7200
-                      bookingItems:
-                        - id: 1
-                          name: "Adult"
-                        - id: 2
-                          name: "Child"
-                      minQuantity: 1
-                      maxQuantity: 12
-        '404':
-          description: >
-            No products found for the given partner ID.
-        '401':
-          description: Authentication credentials were not provided or invalid.
-        '403':
-          description: Permission denied.
-
-  /products/{productId}:
-    get:
-      tags:
-        - Integration
-      summary: Get product info with its options
-      description: >
-        Returns detailed information for a single product,
-        identified by its ID. Includes all options and their participant types.  
-        
-        **Authentication required:** Basic Auth
-      operationId: getExperienceInfo
-      security:
-        - BasicAuth: [ ]
-      parameters:
-        - name: productId
-          in: path
-          required: true
-          description: >
-            Id of the experience.
-          schema:
-            type: string
-            example: "test"
-      responses:
-        '200':
-          description: Product details with all options.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProductInfoResponse'
-              example:
-                id: "test"
-                internalName: "Test"
-                timeZone: "Europe/Rome"
-                options:
-                  - id: 101
-                    cutoffSeconds: 86400
-                    cancellationCutoffSeconds: 43200
-                    durationSeconds: 7200
-                    bookingItems:
-                      - id: 1
-                        name: "Adult"
-                      - id: 2
-                        name: "Child"
-                    minQuantity: 1
-                    maxQuantity: 12
-        '404':
-          description: Experience not found.
-        '401':
-          description: Authentication credentials were not provided or invalid.
-        '403':
-          description: Permission denied.
-
-  /availabilities:
-    get:
-      tags:
-        - Integration
-      summary: Get option availabilities
-      description: >
-        Retrieve availability slots for a given option between two local datetimes.
-
-        **Authentication required:** Basic Auth
-      operationId: getAvailabilities
-      security:
-        - BasicAuth: [ ]
-      parameters:
-        - name: optionId
-          in: query
-          required: true
-          description: The ID of the variant (option) to get availabilities for.
-          schema:
-            type: string
-            example: "123"
-        - name: localDateStart
-          in: query
-          required: true
-          description: >
-            The local start datetime in ISO 8601 format (e.g. `2024-11-17T09:00:00+00:00`).
-          schema:
-            type: string
-            format: date-time
-        - name: localDateEnd
-          in: query
-          required: true
-          description: >
-            The local end datetime in ISO 8601 format (e.g. `2024-11-20T18:00:00+00:00`).
-          schema:
-            type: string
-            format: date-time
-      responses:
-        '200':
-          description: List of availability slots for the given variant.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Availability'
-        '400':
-          description: Invalid parameters or validation failed.
-        '401':
-          description: Authentication credentials were not provided or invalid.
-        '403':
-          description: Permission denied.
-        '404':
-          description: Variant not found.
-
-  /bookings:
+  /welfare/login/:
     post:
+      summary: Authenticate welfare user
+      description: |
+        Authenticates a user from a welfare provider and creates a session.
+        
+        The provider must send a signed JWT token containing the user's information
+        and available welfare credit. Upon successful validation, the user will be
+        redirected to the Holidoit welfare frontend.
+        
+        **Important**: This endpoint expects `application/x-www-form-urlencoded` content type.
+      operationId: welfareLogin
       tags:
-        - Integration
-      summary: Reserve a booking
-      description: >
-        Create a new booking for a specific option.
-
-        This endpoint validates availability, participant limits, and notice period,
-        then reserves the slot by creating a booking in the Holidoit system.
-
-        **Authentication required:** Basic Auth
-      operationId: postReserveBooking
-      security:
-        - BasicAuth: [ ]
+        - Authentication
       requestBody:
         required: true
         content:
-          application/json:
+          application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/ReservationRequest'
-            example:
-              optionId: 123
-              bookingReference: "FRD-ABC123"
-              availability: "2025-06-15T10:00:00+02:00"
-              bookingItems:
-                - unitId: 1
-                  quantity: 2
-                - unitId: 2
-                  quantity: 1
+              $ref: '#/components/schemas/WelfareLoginRequest'
+            examples:
+              standard:
+                summary: Standard login request
+                value:
+                  provider: poste
+                  token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+                  callbackURL: https://welfare-provider.com/api/authorize
+                  redirectURL: https://welfare-provider.com/return
       responses:
-        '200':
-          description: Booking reserved successfully.
-          content:
-            application/json:
+        '302':
+          description: |
+            Successful authentication. User is redirected to the welfare frontend.
+            
+            The redirect URL will be: `https://{provider}.welfare.holidoit.com?session_id={uuid}`
+          headers:
+            Location:
+              description: Redirect URL with session ID
               schema:
-                $ref: '#/components/schemas/ReservationResponse'
-              example:
-                supplierReference: "HLD1987654"
-                resellerReference: "FRD-ABC123"
-                utcCreatedAt: "2025-06-15T08:00:00Z"
-                utcExpiresAt: "2025-06-15T08:15:00Z"
-                status: "ON_HOLD"
-                availability:
-                  - id: "2025-06-15T10:00:00+02:00"
-                    localDateTimeStart: "2025-06-15T10:00:00+02:00"
-                    localDateTimeEnd: "2025-06-15T12:00:00+02:00"
-                    utcCutoffAt: "2025-06-15T08:00:00Z"
-                    available: true
-                    status: "AVAILABLE"
-                    vacancies: 5
+                type: string
+                example: https://poste.welfare.holidoit.com?session_id=550e8400-e29b-41d4-a716-446655440000
         '400':
-          description: Invalid input data or validation error.
-        '401':
-          description: Authentication credentials were not provided or invalid.
-        '403':
-          description: Permission denied.
-        '404':
-          description: Variant not found.
-    get:
-      tags:
-        - Integration
-      summary: Search confirmed bookings
-      description: >
-        Search and filter confirmed bookings by date range,
-        product, partner, option, or supplier references (AND).  
-        
-        If date range is not provided, the next 30 days are used by default.
-        
-        **Authentication required:** Basic Auth
-      operationId: getBookings
-      security:
-        - BasicAuth: [ ]
-      parameters:
-        - name: supplierReferences
-          in: query
-          required: false
-          description: >
-            List of external booking references.
-            Example: ?supplierReferences=ABC123
-          schema:
-            type: array
-            items:
-              type: string
-            example: [ "ABC123", "XYZ999" ]
-
-        - name: localDateTimeStart
-          in: query
-          required: false
-          description: >
-            Start date (YYYY-MM-DD). Used to compute the datetime window (included).
-          schema:
-            type: string
-            format: date
-            example: "2026-01-01"
-
-        - name: localDateTimeEnd
-          in: query
-          required: false
-          description: >
-            End date (YYYY-MM-DD). Used to compute the datetime window (included).
-          schema:
-            type: string
-            format: date
-            example: "2026-03-01"
-
-        - name: partnerId
-          in: query
-          required: false
-          description: Partner UUID used for filtering.
-          schema:
-            type: string
-            format: uuid
-            example: "a3f20c3e-8f2e-4d33-bc12-88ff30dfbd9c"
-
-        - name: productId
-          in: query
-          required: false
-          description: Product Id used for filtering.
-          schema:
-            type: string
-            example: "test"
-
-        - name: optionId
-          in: query
-          required: false
-          description: Variant ID used for filtering.
-          schema:
-            type: integer
-            example: 101
-
-      responses:
-        '200':
-          description: List of matching bookings.
+          description: Invalid request data
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/BookingSearch'
+                $ref: '#/components/schemas/ErrorResponse'
               example:
-                - status: "CONFIRMED"
-                  resellerReference: "XXX-12345"
-                  supplierReference: "YYY987654"
-                  utcCreatedAt: "2025-06-10T08:00:00Z"
-                  utcConfirmedAt: "2025-06-10T08:10:00Z"
-                  optionId: 101
-                  productId: "test-1"
-                  localDateTimeStart: "2025-06-20T10:00:00+02:00"
-                  localDateTimeEnd: "2025-06-20T12:00:00+02:00"
-                  contact:
-                    firstName: "John"
-                    lastName: "Doe"
-                    emailAddress: "john@example.com"
-                    phoneNumber: "+39333111222"
-                  notes: "Customer requested window seating"
-                  unitItems:
-                    - unitId: 1
-                      quantity: 2
-                    - unitId: 2
-                      quantity: 1
+                error: Invalid request data
+                details:
+                  token:
+                    - This field is required.
         '401':
-          description: Authentication credentials were not provided or invalid.
-        '403':
-          description: Permission denied.
-
-  /bookings/{supplierReference}/cancel-reservation:
-    post:
-      tags:
-        - Integration
-      summary: Cancel a pending reservation
-      description: >
-        Cancels a *pending* reservation,
-        identified by its `supplierReference`.
-
-        If the reservation exists, it is deleted.  
-        
-        **Authentication required:** Basic Auth
-      operationId: postCancelReservation
-      security:
-        - BasicAuth: [ ]
-      parameters:
-        - name: supplierReference
-          in: path
-          required: true
-          description: The reference of the reservation to cancel.
-          schema:
-            type: string
-            example: "HLDABC1234"
-      responses:
-        '200':
-          description: Reservation cancelled successfully.
+          description: Authentication failed (invalid or expired JWT)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CancelReservationResponse'
+                $ref: '#/components/schemas/ErrorResponse'
               example:
-                resellerReference: "FRD-RES-12345"
-                supplierReference: "HLD1555555"
-                utcCreatedAt: "2025-06-20T10:00:00Z"
-                utcCanceledAt: "2025-06-20T10:05:00Z"
-                status: "CANCELLED"
+                error: Authentication failed
+                details: Signature verification failed
         '404':
-          description: Reservation not found.
-        '401':
-          description: Authentication credentials were not provided or invalid.
-        '403':
-          description: Permission denied.
-
-  /bookings/{supplierReference}/confirm:
-    post:
-      tags:
-        - Integration
-      summary: Confirm a booking
-      description: >
-        Confirms a previously reserved booking identified by its `supplierReference`.
-
-        This endpoint finalizes a booking by setting its status to **CONFIRMED**,
-        validating the customer's contact information, and triggering confirmation
-        workflows such as partner emails.
-
-        **Authentication required:** Basic Auth
-      operationId: postConfirmBooking
-      security:
-        - BasicAuth: [ ]
-      parameters:
-        - name: supplierReference
-          in: path
-          required: true
-          description: >
-            The external booking reference provided during reservation
-            (e.g., the `bookingReference` used in the `/bookings` endpoint).
-          schema:
-            type: string
-            example: "HLDABC1234"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConfirmBookingRequest'
-            example:
-              contact:
-                firstName: "John"
-                lastName: "Doe"
-                emailAddress: "john.doe@example.com"
-                phoneNumber: "+39333111222"
-              amount: 150.00
-              notes: "Customer requested window seats"
-      responses:
-        '200':
-          description: Booking confirmed successfully.
+          description: Provider not found or inactive
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConfirmBookingResponse'
+                $ref: '#/components/schemas/ErrorResponse'
               example:
-                resellerReference: "FRD-ABC123"
-                supplierReference: "HLD1987654"
-                utcCreated_at: "2025-06-15T08:00:00Z"
-                utcConfirmed_at: "2025-06-15T08:05:00Z"
-                status: "CONFIRMED"
-        '400':
-          description: Invalid input data or validation error.
-        '401':
-          description: Authentication credentials were not provided or invalid.
-        '403':
-          description: Permission denied.
-        '404':
-          description: Booking not found.
-
-  /bookings/{supplierReference}/cancel:
-    post:
-      tags:
-        - Integration
-      summary: Cancel a booking
-      description: >
-        Cancels a previously confirmed booking identified by its `supplierReference`.
-
-        This endpoint marks the booking as **CANCELLED**.
-        **Authentication required:** Basic Auth
-      operationId: postCancelBooking
-      security:
-        - BasicAuth: [ ]
-      parameters:
-        - name: supplierReference
-          in: path
-          required: true
-          description: >
-            The external booking reference provided during reservation
-            (e.g., the `bookingReference` used in the `/bookings` endpoint).
-          schema:
-            type: string
-            example: "HLDABC1234"
-      responses:
-        '200':
-          description: Booking cancelled successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CancelBookingResponse'
-              example:
-                resellerReference: "FRD-ABC123"
-                supplierReference: "HLD1987654"
-                utcCanceledAt: "2025-06-15T09:00:00Z"
-                utcCreatedAt: "2025-06-15T08:00:00Z"
-                utcConfirmedAt: "2025-06-15T08:05:00Z"
-                status: "CANCELLED"
-        '400':
-          description: Invalid input or the booking cannot be cancelled.
-        '401':
-          description: Authentication credentials were not provided or invalid.
-        '403':
-          description: Permission denied.
-        '404':
-          description: Booking not found.
-
-  /bookings/{supplierReference}:
-    patch:
-      tags:
-        - Integration
-      summary: Amend an existing booking
-      description: >
-        Partially update a booking identified by its `supplierReference`.  
-        This endpoint allows modifying:
-        - The scheduled availability (date/time)
-        - Participant quantities
-        - Contact details
-        - Notes
-        - Booking amount
-
-        Fields that are not provided in the request will remain unchanged.
-        **Authentication required:** Basic Auth  
-
-      operationId: patchBookingAmendment
-      security:
-        - BasicAuth: [ ]
-      parameters:
-        - name: supplierReference
-          in: path
-          required: true
-          description: >
-            The external booking reference provided during reservation
-            (e.g., the `bookingReference` used in the `/bookings` endpoint).
-          schema:
-            type: string
-            example: "HLDABC1234"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BookingAmendmentRequest'
-            example:
-              availability: "2025-06-16T10:00:00+02:00"
-              notes: "Customer requested earlier departure time"
-              bookingItems:
-                - unitId: 1
-                  quantity: 3
-              contact:
-                firstName: "Jane"
-                lastName: "Doe"
-                phoneNumber: "+39333999888"
-              amount: 200.00
-      responses:
-        '200':
-          description: Booking amended successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BookingAmendmentResponse'
-              example:
-                resellerReference: "FRD-ABC123"
-                supplierReference: "HLD1987654"
-                utcUpdatedAt: "2025-06-16T08:15:00Z"
-                status: "CONFIRMED"
-        '400':
-          description: Invalid amendment data or validation error.
-        '401':
-          description: Authentication credentials were not provided or invalid.
-        '403':
-          description: Permission denied.
-        '404':
-          description: Booking not found.
+                error: Not found
+                details: No active configuration found for this provider
 
 components:
-  securitySchemes:
-    BasicAuth:
-      type: http
-      scheme: basic
-      description: >
-        HTTP Basic authentication using username and password.
-
   schemas:
-    PartnerWithProducts:
+    WelfareLoginRequest:
       type: object
       required:
-        - id
-        - products
-        - name
+        - provider
+        - token
+        - callbackURL
+        - redirectURL
+      properties:
+        provider:
+          type: string
+          description: |
+            Provider's unique subdomain identifier.
+            This must match the configured `frontend_subdomain` for the provider.
+          example: poste
+        token:
+          type: string
+          description: |
+            JWT token signed with the provider's RSA private key (RS256 algorithm).
+            
+            The token must contain the following claims:
+            - `sub`: Unique user identifier (stable across sessions)
+            - `iss`: Provider's identifier
+            - `aud`: Holidoit's identifier for this provider
+            - `iat`: Token issued at (Unix timestamp)
+            - `exp`: Token expiration (Unix timestamp)
+            - `user_info`: Object containing user details
+            - `credit`: Object containing wallet information
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEyMzQ1IiwiaXNzIjoicG9zdGUtd2VsZmFyZSIsImF1ZCI6ImhvbGlkb2l0IiwiaWF0IjoxNzA0MTEwNDAwLCJleHAiOjE3MDQxMTQwMDAsInVzZXJfaW5mbyI6eyJmaXJzdF9uYW1lIjoiTWFyaW8iLCJsYXN0X25hbWUiOiJSb3NzaSIsImZpc2NhbF9jb2RlIjoiUlNTTVJBODVNMDFINTAxWiIsImVtYWlsIjoibWFyaW8ucm9zc2lAZXhhbXBsZS5jb20ifSwiY3JlZGl0Ijp7ImF2YWlsYWJsZV9hbW91bnQiOjUwMCwiYXZhaWxhYmxlX2ZyaW5nZV9hbW91bnQiOjEwMCwiY3VycmVuY3kiOiJFVVIifX0.signature
+        callbackURL:
+          type: string
+          format: uri
+          description: |
+            URL that Holidoit will call to request purchase authorization.
+            
+            When a user confirms a purchase, Holidoit will send a POST request
+            to this URL with the order details and a signed JWT for verification.
+          example: https://welfare-provider.com/api/holidoit/authorize
+        redirectURL:
+          type: string
+          format: uri
+          description: |
+            URL to redirect the user after completing a purchase.
+            
+            After a successful purchase authorization, the user can be
+            redirected back to the welfare provider's portal.
+          example: https://welfare-provider.com/dashboard
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          oneOf:
+            - type: string
+            - type: object
+          description: Additional error details
+
+    JWTPayload:
+      type: object
+      description: Expected structure of the JWT token payload
+      required:
+        - sub
+        - iss
+        - aud
+        - iat
+        - exp
+        - user_info
+        - credit
+      properties:
+        sub:
+          type: string
+          description: Unique user identifier (stable across sessions)
+          example: user-12345
+        iss:
+          type: string
+          description: Provider's identifier
+          example: poste-welfare
+        aud:
+          type: string
+          description: Holidoit's identifier for this provider
+          example: holidoit
+        iat:
+          type: integer
+          description: Token issued at (Unix timestamp)
+          example: 1704110400
+        exp:
+          type: integer
+          description: Token expiration (Unix timestamp)
+          example: 1704114000
+        user_info:
+          $ref: '#/components/schemas/JWTUserInfo'
+        credit:
+          $ref: '#/components/schemas/JWTCredit'
+
+    JWTUserInfo:
+      type: object
+      description: User information in the JWT payload
+      required:
+        - first_name
+        - last_name
+        - fiscal_code
         - email
       properties:
-        id:
+        first_name:
           type: string
-          example: "a3f20c3e-8f2e-4d33-bc12-88ff30dfbd9c"
-          description: UUID of the partner.
-        name:
+          description: User's first name
+          example: Mario
+        last_name:
           type: string
-          example: "Partner Name"
-          description: Name of the partner.
+          description: User's last name
+          example: Rossi
+        fiscal_code:
+          type: string
+          description: Italian fiscal code (codice fiscale)
+          example: RSSMRA85M01H501Z
         email:
           type: string
           format: email
-          example: "example@partner.com"
-        products:
-          type: array
-          items:
-            $ref: '#/components/schemas/PartnerProduct'
+          description: User's email address
+          example: mario.rossi@example.com
 
-    PartnerProduct:
+    JWTCredit:
       type: object
+      description: Wallet/credit information in the JWT payload
       required:
-        - id
-        - internalName
+        - available_amount
+        - available_fringe_amount
+        - currency
       properties:
-        id:
-          type: string
-          example: "test"
-          description: >
-            Experience id.
-        internalName:
-          type: string
-          example: "Test"
-
-    OptionInfo:
-      type: object
-      required:
-        - id
-        - cutoffSeconds
-        - cancellationCutoffSeconds
-        - durationSeconds
-        - bookingItems
-      properties:
-        id:
-          type: integer
-          example: 123
-          description: The ID of the variant.
-        cutoffSeconds:
-          type: integer
-          example: 86400
-          description: Booking cutoff time in seconds.
-        cancellationCutoffSeconds:
-          type: integer
-          example: 43200
-          description: Cancellation cutoff time in seconds.
-        durationSeconds:
-          type: integer
-          example: 7200
-          description: Duration of the experience in seconds.
-        bookingItems:
-          type: array
-          description: Available participant options.
-          items:
-            $ref: '#/components/schemas/OptionBookingItem'
-        minQuantity:
-          type: integer
-          nullable: true
-          example: 1
-          description: Minimum number of participants.
-        maxQuantity:
-          type: integer
-          nullable: true
-          example: 10
-          description: Maximum number of participants.
-
-    OptionBookingItem:
-      type: object
-      required:
-        - id
-        - name
-      properties:
-        id:
-          type: integer
-          example: 1
-          description: The participant type ID.
-        name:
-          type: string
-          example: Adult
-          description: The participant type name.
-
-    Availability:
-      type: object
-      required:
-        - id
-        - localDateTimeStart
-        - localDateTimeEnd
-        - available
-        - status
-        - vacancies
-      properties:
-        id:
-          type: string
-          example: "2025-06-12T10:00:00+01:00"
-          description: A unique identifier for this availability (usually an ISO datetime string).
-        localDateTimeStart:
-          type: string
-          format: date-time
-          example: "2025-06-12T10:00:00+01:00"
-          description: Local start time for the availability.
-        localDateTimeEnd:
-          type: string
-          format: date-time
-          example: "2025-06-12T12:00:00+01:00"
-          description: Local end time for the availability.
-        utcCutoffAt:
-          type: string
-          format: date-time
-          nullable: true
-          example: "2025-06-12T09:00:00Z"
-          description: UTC cutoff time for booking this slot.
-        available:
-          type: boolean
-          example: true
-          description: Whether the slot is available for booking.
-        status:
-          type: string
-          example: "AVAILABLE"
-          description: The availability status.
-        vacancies:
-          type: integer
-          example: 5
-          description: Number of available places.
-
-    ReservationRequest:
-      type: object
-      required:
-        - optionId
-        - bookingReference
-        - availability
-        - bookingItems
-      properties:
-        optionId:
-          type: integer
-          example: 123
-        bookingReference:
-          type: string
-          example: "FRD-ABC123"
-        availability:
-          type: string
-          format: date-time
-          example: "2025-06-15T10:00:00+02:00"
-        bookingItems:
-          type: array
-          items:
-            $ref: '#/components/schemas/ReservationBookingItem'
-
-    ReservationBookingItem:
-      type: object
-      required:
-        - unitId
-        - quantity
-      properties:
-        unitId:
-          type: integer
-          example: 1
-        quantity:
-          type: integer
-          example: 2
-
-    ReservationResponse:
-      type: object
-      required:
-        - supplierReference
-        - utcCreatedAt
-        - utcExpiresAt
-        - status
-        - availability
-      properties:
-        supplierReference:
-          type: string
-          example: "HLD1987654"
-        resellerReference:
-          type: string
-          nullable: true
-          example: "FRD-ABC123"
-        utcCreatedAt:
-          type: string
-          format: date-time
-          example: "2025-06-15T08:00:00Z"
-        utcExpiresAt:
-          type: string
-          format: date-time
-          example: "2025-06-15T08:15:00Z"
-        status:
-          type: string
-          example: "ON_HOLD"
-        availability:
-          type: array
-          items:
-            $ref: '#/components/schemas/Availability'
-
-    ConfirmBookingRequest:
-      type: object
-      required:
-        - contact
-        - amount
-      properties:
-        contact:
-          $ref: '#/components/schemas/Contact'
-        amount:
+        available_amount:
           type: number
           format: decimal
-          example: 150.00
-        notes:
-          type: string
-          nullable: true
-          example: "Customer requested window seats"
-
-    Contact:
-      type: object
-      required:
-        - firstName
-        - lastName
-        - emailAddress
-      properties:
-        firstName:
-          type: string
-          example: "John"
-        lastName:
-          type: string
-          example: "Doe"
-        emailAddress:
-          type: string
-          format: email
-          example: "john.doe@example.com"
-        phoneNumber:
-          type: string
-          nullable: true
-          example: "+39333111222"
-
-    ConfirmBookingResponse:
-      type: object
-      required:
-        - resellerReference
-        - supplierReference
-        - utcCreated_at
-        - utcConfirmed_at
-        - status
-      properties:
-        resellerReference:
-          type: string
-          example: "FRD-ABC123"
-        supplierReference:
-          type: string
-          example: "HLD1987654"
-        utcCreated_at:
-          type: string
-          format: date-time
-          example: "2025-06-15T08:00:00Z"
-        utcConfirmed_at:
-          type: string
-          format: date-time
-          example: "2025-06-15T08:05:00Z"
-        status:
-          type: string
-          example: "CONFIRMED"
-
-    CancelBookingResponse:
-      type: object
-      required:
-        - resellerReference
-        - supplierReference
-        - utcCanceledAt
-        - utcCreatedAt
-        - utcConfirmedAt
-        - status
-      properties:
-        resellerReference:
-          type: string
-          example: "FRD-ABC123"
-        supplierReference:
-          type: string
-          example: "HLD1987654"
-        utcCanceledAt:
-          type: string
-          format: date-time
-          example: "2025-06-15T09:00:00Z"
-        utcCreatedAt:
-          type: string
-          format: date-time
-          example: "2025-06-15T08:00:00Z"
-        utcConfirmedAt:
-          type: string
-          format: date-time
-          example: "2025-06-15T08:05:00Z"
-        status:
-          type: string
-          example: "CANCELLED"
-
-    BookingAmendmentRequest:
-      type: object
-      properties:
-        availability:
-          type: string
-          format: date-time
-          nullable: true
-          example: "2025-06-16T10:00:00+02:00"
-        notes:
-          type: string
-          nullable: true
-          example: "Customer requested earlier departure time"
-        bookingItems:
-          type: array
-          items:
-            $ref: '#/components/schemas/ReservationBookingItem'
-        contact:
-          $ref: '#/components/schemas/Contact'
-        amount:
+          description: Available welfare credit
+          example: 500.00
+        available_fringe_amount:
           type: number
           format: decimal
-          example: 200.00
-      description: >
-        Partial update request for an existing booking.  
-        All fields are optional — only the provided ones will be updated.
+          description: Available fringe benefits
+          example: 100.00
+        currency:
+          type: string
+          description: Currency code
+          default: EUR
+          example: EUR
 
-    BookingAmendmentResponse:
-      type: object
-      required:
-        - resellerReference
-        - supplierReference
-        - utcUpdatedAt
-        - status
-      properties:
-        resellerReference:
-          type: string
-          example: "FRD-ABC123"
-        supplierReference:
-          type: string
-          example: "HLD1987654"
-        utcUpdatedAt:
-          type: string
-          format: date-time
-          example: "2025-06-16T08:15:00Z"
-        status:
-          type: string
-          example: "CONFIRMED"
-
-    ProductInfoResponse:
-      type: object
-      required:
-        - id
-        - internalName
-        - timeZone
-        - options
-      properties:
-        id:
-          type: string
-          example: "test"
-          description: Experience slug (string identifier)
-        internalName:
-          type: string
-          example: "Test"
-        timeZone:
-          type: string
-          example: "Europe/Rome"
-        options:
-          type: array
-          items:
-            $ref: '#/components/schemas/OptionInfo'
-
-    BookingSearch:
-      type: object
-      required:
-        - status
-        - resellerReference
-        - supplierReference
-        - utcCreatedAt
-        - optionId
-        - productId
-        - localDateTimeStart
-        - localDateTimeEnd
-        - contact
-        - unitItems
-      properties:
-        status:
-          type: string
-          example: "CONFIRMED"
-
-        resellerReference:
-          type: string
-          description: reseller reference
-          example: "FRD-12345"
-
-        supplierReference:
-          type: string
-          description: Internal Holidoit booking code
-          example: "HLD9876541"
-
-        utcCreatedAt:
-          type: string
-          format: date-time
-          example: "2025-06-10T08:00:00Z"
-
-        utcConfirmedAt:
-          type: string
-          nullable: true
-          format: date-time
-          example: "2025-06-10T08:10:00Z"
-
-        optionId:
-          type: integer
-          description: ExperienceVariant ID
-          example: 101
-
-        productId:
-          type: string
-          description: Experience slug
-          example: "boat-tour-amalfi"
-
-        localDateTimeStart:
-          type: string
-          format: date-time
-          example: "2025-06-20T10:00:00+02:00"
-
-        localDateTimeEnd:
-          type: string
-          format: date-time
-          example: "2025-06-20T12:00:00+02:00"
-
-        contact:
-          $ref: '#/components/schemas/BookingContact'
-
-        notes:
-          type: string
-          nullable: true
-          example: "Customer requested window seating"
-
-        unitItems:
-          type: array
-          description: Grouped participant allocations
-          items:
-            type: object
-            properties:
-              unitId:
-                type: integer
-                example: 1
-              quantity:
-                type: integer
-                example: 2
-
-    BookingContact:
-      type: object
-      required:
-        - firstName
-        - lastName
-        - emailAddress
-        - phoneNumber
-      properties:
-        firstName:
-          type: string
-          example: "John"
-        lastName:
-          type: string
-          example: "Doe"
-        emailAddress:
-          type: string
-          format: email
-          example: "john@example.com"
-        phoneNumber:
-          type: string
-          example: "+39333111222"
-
-    CancelReservationResponse:
-      type: object
-      required:
-        - resellerReference
-        - supplierReference
-        - utcCanceledAt
-        - utcCreatedAt
-        - status
-      properties:
-        resellerReference:
-          type: string
-          example: "FRD-RES-12345"
-        supplierReference:
-          type: string
-          example: "HLD5555555"
-        utcCanceledAt:
-          type: string
-          format: date-time
-          example: "2025-06-20T10:05:00Z"
-        utcCreatedAt:
-          type: string
-          format: date-time
-          example: "2025-06-20T10:00:00Z"
-        status:
-          type: string
-          example: "CANCELLED"
+tags:
+  - name: Authentication
+    description: Endpoints for user authentication from welfare providers
+    
