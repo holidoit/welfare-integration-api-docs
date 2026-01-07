@@ -3,27 +3,177 @@ info:
   title: Holidoit Welfare Provider API
   description: |
     API for welfare providers to integrate with the Holidoit booking platform.
-    
-    This specification covers the login endpoint that welfare providers must call
-    to authenticate their users and redirect them to the Holidoit welfare portal.
-    
+
+    The Holidoit Welfare Integration allows corporate welfare platforms to provide their employees 
+    with a seamless booking experience for travel and leisure activities.
+
+    **Key Features:**
+    - Single Sign-On (SSO) via JWT tokens
+    - Wallet-based payments using employee welfare credits
+    - Real-time authorization for purchases
+
+    **Key Benefits:**
+    - Employees access Holidoit through a dedicated welfare portal
+    - Purchases are authorized against the employee's welfare budget
+    - Secure RSA-signed JWT authentication
+
+
+    ---
+
     ## Authentication Flow
+
+    ### Step 1: Send User to Holidoit
+
+    When an employee clicks to access Holidoit from the welfare portal, the provider must:
+    1. Generate a signed JWT token containing user information and available credit
+    2. Send a POST request to Holidoit's login endpoint (`/welfare/login/`)
+
+    **Request Parameters:**
+    | Parameter | Type | Description |
+    |-----------|------|-------------|
+    | `provider` | string | Provider's unique subdomain identifier (e.g., `poste`) |
+    | `token` | string | JWT token signed with provider's private key |
+    | `callbackURL` | URL | URL Holidoit will call for purchase authorization |
+    | `redirectURL` | URL | URL to redirect user after completing a purchase |
+
+    ### Step 2: Holidoit Validates and Creates Session
+
+    Holidoit will:
+    1. Decode and verify the JWT using the provider's public key
+    2. Extract user information and available credit
+    3. Redirect the user to: `https://{provider}.welfare.holidoit.com?session_id={uuid}`
+
+    ### Step 3: User Browses and Shops
+
+    The user can now browse experiences, pick one and proceed to checkout using their welfare credits.
+
+    ---
+
+    ## Purchase Authorization Flow
+
+    When a user confirms a purchase, Holidoit requests authorization from the welfare provider.
+
+    ### Step 1: Authorization Request
+
+    Holidoit will call the `callbackURL` provided during login with a POST request:
+
     
-    1. Provider generates a JWT token with user info and credit balance
-    2. Provider sends a POST request to `/welfare/login/` with the token
-    3. Holidoit validates the JWT and creates a session
-    4. User is redirected to the welfare frontend with a session ID
+    ### Step 2: Provider Validates and Authorizes
+
+    The welfare provider must:
+    1. Verify the JWT signature using Holidoit's public key
+    2. Check sufficient funds in the user's wallet
+    4. Deduct the amount from the user's balance
+    5. Return success or failure response
+
+    ---
+
+    ## JWT Token Specification
+
+    ### Inbound Token (Provider → Holidoit)
+
+    JWT token sent during login must contain the following claims:
+
+    | Claim | Required | Description |
+    |-------|----------|-------------|
+    | `sub` | Yes | Unique user identifier (stable across sessions) |
+    | `iss` | Yes | Provider's identifier |
+    | `aud` | Yes | Holidoit's identifier for this provider |
+    | `iat` | Yes | Token issued at (Unix timestamp) |
+    | `exp` | Yes | Token expiration (Unix timestamp) |
+    | `user_info` | Yes | Object with user details |
+    | `user_info.first_name` | Yes | User's first name |
+    | `user_info.last_name` | Yes | User's last name |
+    | `user_info.fiscal_code` | Yes | Italian fiscal code (codice fiscale) |
+    | `user_info.email` | Yes | User's email address |
+    | `credit` | Yes | Object with wallet/credit information |
+    | `credit.available_amount` | Yes | Available welfare credit (decimal) |
+    | `credit.available_fringe_amount` | Yes | Available fringe benefits (decimal) |
+    | `credit.currency` | Yes | Currency code (default: EUR) |
+
+    **Example Token Payload:**
+    ```json
+    {
+      "sub": "unique-user-identifier",
+      "iss": "provider-identifier",
+      "aud": "holidoit-identifier",
+      "iat": 1704110400,
+      "exp": 1704114000,
+      "user_info": {
+        "first_name": "Mario",
+        "last_name": "Rossi",
+        "fiscal_code": "RSSMRA85M01H501Z",
+        "email": "mario.rossi@example.com"
+      },
+      "credit": {
+        "available_amount": 500.00,
+        "available_fringe_amount": 100.00,
+        "currency": "EUR"
+      }
+    }
+    ```
+
+    ### Outbound Token (Holidoit → Provider)
+
+    JWT for authorization requests contains:
+    ```json
+    {
+      "iss": "holidoit-identifier",
+      "aud": "provider-identifier",
+      "sub": "unique-user-identifier",
+      "iat": 1704110400,
+      "exp": 1704110700
+    }
+    ```
+
+    ### Cryptographic Requirements
+
+    | Requirement | Value |
+    |-------------|-------|
+    | Algorithm | RS256 (RSA Signature with SHA-256) |
+    | Key Size | Minimum 2048 bits (4096 recommended) |
+    | Login Token Validity | Maximum 1 hour |
+    | Authorization Token Validity | 5 minutes |
+
+    ---
+
+    ## Configuration Requirements
+
+    | Item | Description |
+    |------|-------------|
+    | Provider Name | Unique identifier for the provider |
+    | RSA Public Key | For verifying authorization request JWTs |
+    | Frontend Subdomain | Subdomain for the dedicated welfare frontend (e.g., `poste` for `poste.welfare.holidoit.com`) |
+    | Issuer Identifier (iss) | Holidoit's identifier for authorization JWTs |
+    | Audience Identifier (aud) | Provider's identifier in Holidoit's JWTs |
+
+    ### Tax Configuration (Optional)
+
+    | Setting | Default |
+    |---------|---------|
+    | Tax Percentage | 0.00 |
+    | Tax Class | F.C esente |
+
+    ---
+
+    ## Testing
+
+    ### Sandbox Environment
+
+    | Environment | URL |
+    |-------------|-----|
+    | API Base URL | `https://development.holydoit.com` |
+    | Frontend URL | `https://{provider}.welfare.holido.it` |
+
+    ---
+
+    ## Support
+
+    - **IT Support:** luca.leoni@holidoit.com
+    - **Business Support:** irene@holidoit.com
     
-    ## JWT Token Requirements
-    
-    The `token` parameter must be a valid JWT signed with RS256 algorithm containing:
-    - `sub`: Unique user identifier
-    - `iss`: Provider's identifier
-    - `aud`: Holidoit's identifier for this provider
-    - `iat`: Issued at timestamp
-    - `exp`: Expiration timestamp
-    - `user_info`: Object with `first_name`, `last_name`, `fiscal_code`, `email`
-    - `credit`: Object with `available_amount`, `available_fringe_amount`, `currency`
+
+    *Last updated: January 2025*
   version: 1.0.0
   contact:
     email: luca.leoni@holidoit.com
@@ -34,8 +184,6 @@ info:
 servers:
   - url: https://development.holydoit.com
     description: Sandbox environment for testing
-#  - url: https://api.holidoit.com
-#    description: Production environment
 
 paths:
   /welfare/login/:
@@ -43,11 +191,11 @@ paths:
       summary: Authenticate welfare user
       description: |
         Authenticates a user from a welfare provider and creates a session.
-        
+
         The provider must send a signed JWT token containing the user's information
         and available welfare credit. Upon successful validation, the user will be
         redirected to the Holidoit welfare frontend.
-        
+
         **Important**: This endpoint expects `application/x-www-form-urlencoded` content type.
       operationId: welfareLogin
       tags:
@@ -57,7 +205,7 @@ paths:
         content:
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/WelfareLoginRequest'
+              $ref: "#/components/schemas/WelfareLoginRequest"
             examples:
               standard:
                 summary: Standard login request
@@ -67,10 +215,10 @@ paths:
                   callbackURL: https://welfare-provider.com/api/authorize
                   redirectURL: https://welfare-provider.com/return
       responses:
-        '302':
+        "302":
           description: |
             Successful authentication. User is redirected to the welfare frontend.
-            
+
             The redirect URL will be: `https://{provider}.welfare.holido.it?session_id={uuid}`
           headers:
             Location:
@@ -78,32 +226,32 @@ paths:
               schema:
                 type: string
                 example: https://poste.welfare.holidoit.com?session_id=550e8400-e29b-41d4-a716-446655440000
-        '400':
+        "400":
           description: Invalid request data
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               example:
                 error: Invalid request data
                 details:
                   token:
                     - This field is required.
-        '401':
+        "401":
           description: Authentication failed (invalid or expired JWT)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               example:
                 error: Authentication failed
                 details: Signature verification failed
-        '404':
+        "404":
           description: Provider not found or inactive
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               example:
                 error: Not found
                 details: No active configuration found for this provider
@@ -128,7 +276,7 @@ components:
           type: string
           description: |
             JWT token signed with the provider's RSA private key (RS256 algorithm).
-            
+
             The token must contain the following claims:
             - `sub`: Unique user identifier (stable across sessions)
             - `iss`: Provider's identifier
@@ -143,7 +291,7 @@ components:
           format: uri
           description: |
             URL that Holidoit will call to request purchase authorization.
-            
+
             When a user confirms a purchase, Holidoit will send a POST request
             to this URL with the order details and a signed JWT for verification.
           example: https://welfare-provider.com/api/holidoit/authorize
@@ -152,7 +300,7 @@ components:
           format: uri
           description: |
             URL to redirect the user after completing a purchase.
-            
+
             After a successful purchase authorization, the user can be
             redirected back to the welfare provider's portal.
           example: https://welfare-provider.com/dashboard
@@ -202,9 +350,9 @@ components:
           description: Token expiration (Unix timestamp)
           example: 1704114000
         user_info:
-          $ref: '#/components/schemas/JWTUserInfo'
+          $ref: "#/components/schemas/JWTUserInfo"
         credit:
-          $ref: '#/components/schemas/JWTCredit'
+          $ref: "#/components/schemas/JWTCredit"
 
     JWTUserInfo:
       type: object
@@ -260,4 +408,3 @@ components:
 tags:
   - name: Authentication
     description: Endpoints for user authentication from welfare providers
-    
