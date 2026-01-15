@@ -8,7 +8,7 @@ info:
     with a seamless booking experience for travel and leisure activities.
 
     **Key Features:**
-    - Single Sign-On (SSO) via JWT tokens
+    - Single Sign-On (SSO) via JWT tokens signed with RSA keys
     - Wallet-based payments using employee welfare credits
     - Real-time authorization for purchases
 
@@ -39,7 +39,7 @@ info:
     ### Step 2: Holidoit Validates and Creates Session
 
     Holidoit will:
-    1. Decode and verify the JWT using the provider's public key
+    1. Verify the JWT using the provider's public key
     2. Extract user information and available credit
     3. Redirect the user to: `https://{provider}.welfare.holidoit.com?session_id={uuid}`
 
@@ -142,8 +142,8 @@ info:
     | Item | Description |
     |------|-------------|
     | Provider Name | Unique identifier for the provider |
-    | RSA Public Key | For verifying authorization request JWTs |
-    | RSA Private Key | For verifying authorization request JWTs |
+    | RSA Public Key (by provided) | For verifying authentication request JWTs |
+    | RSA Public Key (by Holidoit) | For verifying authorization request JWTs |
     | Frontend Subdomain | Subdomain for the dedicated welfare frontend (e.g., `poste` for `poste.welfare.holidoit.com`) |
     | Issuer Identifier (iss) | Holidoit's identifier for authorization JWTs |
     | Audience Identifier (aud) | Provider's identifier in Holidoit's JWTs |
@@ -174,8 +174,8 @@ info:
     - **Business Support:** irene@holidoit.com
     
     
-    *Last updated: January 2026*
-  version: 1.0.0
+    *Last updated: 15 January 2026*
+  version: 1.0.1
   contact:
     email: luca.leoni@holidoit.com
   license:

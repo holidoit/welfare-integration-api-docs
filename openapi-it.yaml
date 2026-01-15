@@ -8,7 +8,7 @@ info:
     un'esperienza di prenotazione fluida per viaggi e attività ricreative.
 
     **Funzionalità Principali:**
-    - Single Sign-On (SSO) tramite token JWT
+    - Single Sign-On (SSO) tramite token JWT firmato RSA
     - Pagamenti basati su wallet utilizzando i crediti welfare dei dipendenti
     - Autorizzazione in tempo reale per gli acquisti
 
@@ -39,7 +39,7 @@ info:
     ### Passaggio 2: Holidoit Valida e Crea la Sessione
 
     Holidoit:
-    1. Decodifica e verifica il JWT utilizzando la chiave pubblica del provider
+    1. Verifica il JWT utilizzando la chiave pubblica del provider
     2. Estrae le informazioni dell'utente e il credito disponibile
     3. Reindirizza l'utente a: `https://{provider}.welfare.holidoit.com?session_id={uuid}`
 
@@ -142,8 +142,8 @@ info:
     | Elemento | Descrizione |
     |----------|-------------|
     | Nome Provider | Identificatore univoco per il provider |
-    | Chiave Pubblica RSA | Per verificare i JWT delle richieste di autorizzazione |
-    | Chiave Privata RSA | Per firmare i JWT delle richieste di autorizzazione |
+    | Chiave Pubblica RSA (fornita dal provider) | Per verificare i JWT delle richieste di autenticazione |
+    | Chiave Pubblica RSA (fornita da Holidoit) | Per verificare i JWT delle richieste di autorizzazione |
     | Sottodominio Frontend | Sottodominio per il frontend welfare dedicato (es. `poste` per `poste.welfare.holidoit.com`) |
     | Identificatore Issuer (iss) | Identificatore di Holidoit per i JWT di autorizzazione |
     | Identificatore Audience (aud) | Identificatore del provider nei JWT di Holidoit |
@@ -174,8 +174,8 @@ info:
     - **Supporto Business:** irene@holidoit.com
 
 
-    *Ultimo aggiornamento: Gennaio 2026*
-  version: 1.0.0
+    *Ultimo aggiornamento: 15 Gennaio 2026*
+  version: 1.0.1
   contact:
     email: luca.leoni@holidoit.com
   license:
