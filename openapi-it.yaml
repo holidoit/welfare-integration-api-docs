@@ -26,7 +26,7 @@ info:
 
     Quando un dipendente clicca per accedere a Holidoit dal portale welfare, il provider deve:
     1. Generare un token JWT firmato contenente le informazioni dell'utente e il credito disponibile
-    2. Inviare una richiesta POST all'endpoint di login di Holidoit (`/welfare/login/`)
+    2. Inviare una richiesta POST all'endpoint di login di Holidoit (`/api/v1/welfare/login/`)
 
     **Parametri della Richiesta:**
     | Parametro | Tipo | Descrizione |
@@ -187,7 +187,7 @@ servers:
     description: Ambiente sandbox per i test
 
 paths:
-  /welfare/login/:
+  /api/v1/welfare/login/:
     post:
       summary: Autentica utente welfare
       description: |

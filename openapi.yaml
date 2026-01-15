@@ -26,7 +26,7 @@ info:
 
     When an employee clicks to access Holidoit from the welfare portal, the provider must:
     1. Generate a signed JWT token containing user information and available credit
-    2. Send a POST request to Holidoit's login endpoint (`/welfare/login/`)
+    2. Send a POST request to Holidoit's login endpoint (`/api/v1/welfare/login/`)
 
     **Request Parameters:**
     | Parameter | Type | Description |
@@ -187,7 +187,7 @@ servers:
     description: Sandbox environment for testing
 
 paths:
-  /welfare/login/:
+  /api/v1/welfare/login/:
     post:
       summary: Authenticate welfare user
       description: |
