@@ -34,7 +34,7 @@ info:
     | `provider` | string | Identificatore univoco del sottodominio del provider (es. `poste`) |
     | `token` | string | Token JWT firmato con la chiave privata del provider |
     | `callbackURL` | URL | URL che Holidoit chiamerà per l'autorizzazione dell'acquisto |
-    | `redirectURL` | URL | URL per reindirizzare l'utente dopo aver completato un acquisto |
+    | `returnURL` | URL | URL per reindirizzare l'utente dopo aver completato un acquisto o in caso di sessione scaduta |
 
     ### Passaggio 2: Holidoit Valida e Crea la Sessione
 
@@ -174,8 +174,8 @@ info:
     - **Supporto Business:** irene@holidoit.com
 
 
-    *Ultimo aggiornamento: 15 Gennaio 2026*
-  version: 1.0.1
+    *Ultimo aggiornamento: 16 Gennaio 2026*
+  version: 1.0.2
   contact:
     email: luca.leoni@holidoit.com
   license:
@@ -214,7 +214,7 @@ paths:
                   provider: poste
                   token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
                   callbackURL: https://welfare-provider.com/api/authorize
-                  redirectURL: https://welfare-provider.com/return
+                  returnURL: https://welfare-provider.com/return
       responses:
         "302":
           description: |
@@ -265,7 +265,7 @@ components:
         - provider
         - token
         - callbackURL
-        - redirectURL
+        - returnURL
       properties:
         provider:
           type: string
@@ -296,11 +296,11 @@ components:
             Quando un utente conferma un acquisto, Holidoit invierà una richiesta POST
             a questo URL con i dettagli dell'ordine e un JWT firmato per la verifica.
           example: https://welfare-provider.com/api/holidoit/authorize
-        redirectURL:
+        returnURL:
           type: string
           format: uri
           description: |
-            URL per reindirizzare l'utente dopo aver completato un acquisto.
+            URL per reindirizzare l'utente dopo aver completato un acquisto o quando la sessione scade.
 
             Dopo un'autorizzazione dell'acquisto riuscita, l'utente può essere
             reindirizzato al portale del provider welfare.

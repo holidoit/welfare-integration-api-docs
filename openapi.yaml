@@ -34,7 +34,7 @@ info:
     | `provider` | string | Provider's unique subdomain identifier (e.g., `poste`) |
     | `token` | string | JWT token signed with provider's private key |
     | `callbackURL` | URL | URL Holidoit will call for purchase authorization |
-    | `redirectURL` | URL | URL to redirect user after completing a purchase |
+    | `returnURL` | URL | URL to redirect user after completing a purchase or when session expires |
 
     ### Step 2: Holidoit Validates and Creates Session
 
@@ -174,8 +174,8 @@ info:
     - **Business Support:** irene@holidoit.com
     
     
-    *Last updated: 15 January 2026*
-  version: 1.0.1
+    *Last updated: January 16, 2026*
+  version: 1.0.2
   contact:
     email: luca.leoni@holidoit.com
   license:
@@ -214,7 +214,7 @@ paths:
                   provider: poste
                   token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
                   callbackURL: https://welfare-provider.com/api/authorize
-                  redirectURL: https://welfare-provider.com/return
+                  returnURL: https://welfare-provider.com/return
       responses:
         "302":
           description: |
@@ -265,7 +265,7 @@ components:
         - provider
         - token
         - callbackURL
-        - redirectURL
+        - returnURL
       properties:
         provider:
           type: string
@@ -296,11 +296,11 @@ components:
             When a user confirms a purchase, Holidoit will send a POST request
             to this URL with the order details and a signed JWT for verification.
           example: https://welfare-provider.com/api/holidoit/authorize
-        redirectURL:
+        returnURL:
           type: string
           format: uri
           description: |
-            URL to redirect the user after completing a purchase.
+            URL to redirect the user after completing a purchase or when session expires.
 
             After a successful purchase authorization, the user can be
             redirected back to the welfare provider's portal.
